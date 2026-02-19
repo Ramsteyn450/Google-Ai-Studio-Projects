@@ -1,0 +1,8 @@
+{
+  "name": "Remix: EstateIntelligence AI",
+  "description": "A professional-grade house price prediction platform using advanced machine learning to estimate real estate value with confidence intervals.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
