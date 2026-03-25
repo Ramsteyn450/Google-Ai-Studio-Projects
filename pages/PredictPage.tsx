@@ -71,12 +71,34 @@ const PredictPage: React.FC<PredictPageProps> = ({ onResult }) => {
 
       // 2. Real AI Market Analysis via Gemini
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const analysis = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Provide a 2-sentence professional real estate market outlook for a property with these details: 
-        Location Pincode: ${formData.pincode}, House Age: ${formData.house_age_years} years, Configuration: ${formData.bedrooms} BHK. 
-        Focus on value retention and neighborhood potential.`,
-      });
+      
+      // Parallelize analysis and image generation
+      const [analysis, imageResponse] = await Promise.all([
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `Provide a 2-sentence professional real estate market outlook for a property with these details: 
+          Location Pincode: ${formData.pincode}, House Age: ${formData.house_age_years} years, Configuration: ${formData.bedrooms} BHK. 
+          Focus on value retention and neighborhood potential.`,
+        }),
+        ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [
+              {
+                text: `A high-quality, professional architectural visualization of a modern ${formData.bedrooms} BHK house, ${formData.floors} floors, ${formData.house_age_years > 10 ? 'classic style' : 'contemporary style'}, with parking, realistic lighting, luxury real estate photography style.`,
+              },
+            ],
+          },
+        })
+      ]);
+
+      let generatedImageUrl = '';
+      for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          generatedImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
 
       const result: PredictionResult = {
         predicted_price_in_inr: Math.round(finalPrice),
@@ -94,7 +116,8 @@ const PredictPage: React.FC<PredictPageProps> = ({ onResult }) => {
         investment_score: 85,
         nearby_highlights: [],
         pincode_trends: "Stable appreciation observed in the last 12 months in this sector.",
-        weights: defaultModel.getWeights()
+        weights: defaultModel.getWeights(),
+        house_image_url: generatedImageUrl
       };
 
       onResult(result);

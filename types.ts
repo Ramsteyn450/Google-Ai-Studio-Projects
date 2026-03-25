@@ -32,6 +32,7 @@ export interface PredictionResult {
   nearby_highlights: Array<{web: {uri: string, title: string}}>;
   pincode_trends: string;
   weights?: Record<string, number>;
+  house_image_url?: string;
 }
 
 export interface TrainingStats {

@@ -1,13 +1,15 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, ArrowLeft, Download, Share2, 
   ShieldCheck, Info, Gauge, Zap, BarChart3, Landmark, 
-  Code, Cpu, Calculator, MinusCircle, PlusCircle
+  Code, Cpu, Calculator, MinusCircle, PlusCircle, Maximize2, Minimize2, Home, Camera
 } from 'lucide-react';
 import { PredictionResult } from '../types';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
+import html2canvas from 'html2canvas';
 
 interface ResultsPageProps {
   result: PredictionResult | null;
@@ -16,6 +18,20 @@ interface ResultsPageProps {
 const ResultsPage: React.FC<ResultsPageProps> = ({ result }) => {
   const navigate = useNavigate();
   const [animatedPrice, setAnimatedPrice] = useState(0);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  const handleExport = async () => {
+    if (!exportRef.current) return;
+    const canvas = await html2canvas(exportRef.current, {
+      useCORS: true,
+      scale: 2,
+    });
+    const link = document.createElement('a');
+    link.download = 'EstateIntelligence-Valuation.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
 
   useEffect(() => {
     if (!result) {
@@ -50,18 +66,45 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result }) => {
     }).format(val);
   };
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 py-12">
-      <button
-        onClick={() => navigate('/predict')}
-        className="flex items-center text-slate-500 hover:text-emerald-600 font-bold mb-8 transition-colors text-xs uppercase tracking-widest group"
-      >
-        <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Estimator
-      </button>
+  // Chart data for price distribution
+  const chartData = [
+    { name: 'Floor', price: result.min_estimate_in_inr, label: 'Conservative' },
+    { name: 'Predicted', price: result.predicted_price_in_inr, label: 'Fair Market' },
+    { name: 'Ceiling', price: result.max_estimate_in_inr, label: 'Optimistic' },
+  ];
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+  return (
+    <div className={`max-w-7xl mx-auto px-4 py-12 transition-all duration-500 ${presentationMode ? 'scale-105' : ''}`} ref={exportRef}>
+      <div className="flex justify-between items-center mb-8">
+        <button
+          onClick={() => navigate('/predict')}
+          className="flex items-center text-slate-500 hover:text-emerald-600 font-bold transition-colors text-xs uppercase tracking-widest group"
+        >
+          <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Estimator
+        </button>
+        
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleExport}
+            className="flex items-center space-x-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-xs font-bold text-white transition-all shadow-lg shadow-emerald-100"
+          >
+            <Camera size={16} />
+            <span>Export as Image</span>
+          </button>
+
+          <button
+            onClick={() => setPresentationMode(!presentationMode)}
+            className="flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 transition-all"
+          >
+            {presentationMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className={`grid grid-cols-1 ${presentationMode ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-8`}>
         {/* Main Content */}
-        <div className="lg:col-span-3 space-y-8">
+        <div className={`${presentationMode ? 'lg:col-span-1' : 'lg:col-span-3'} space-y-8`}>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -79,6 +122,26 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result }) => {
             </div>
 
             <div className="p-12">
+              {/* Predicted Output Image */}
+              {result.house_image_url && (
+                <div className="mb-12">
+                  <h4 className="text-slate-900 text-xl font-black flex items-center mb-6">
+                    <Home size={24} className="mr-3 text-emerald-500" /> Predicted Property Visualization
+                  </h4>
+                  <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl border-8 border-white">
+                    <img 
+                      src={result.house_image_url} 
+                      alt="Predicted House" 
+                      className="w-full h-[400px] object-cover transition-transform duration-700 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-8">
+                      <p className="text-white font-bold text-lg">AI-Generated Architectural Concept</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12 border-b border-slate-50 pb-12">
                 <div className="p-6 bg-slate-50 rounded-3xl">
                   <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-2">Conservative Floor</p>
@@ -89,6 +152,42 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result }) => {
                   <p className="text-[10px] uppercase font-black text-emerald-600 tracking-wider mb-2">Optimistic Ceiling</p>
                   <p className="text-3xl font-black text-emerald-800">{formatCurrency(result.max_estimate_in_inr)}</p>
                   <p className="text-[10px] text-emerald-600/60 mt-2 italic">*Potential peak value in high-demand cycles</p>
+                </div>
+              </div>
+
+              {/* Price Distribution Chart */}
+              <div className="mb-12">
+                <h4 className="text-slate-900 text-xl font-black flex items-center mb-6">
+                  <BarChart3 size={24} className="mr-3 text-blue-500" /> Valuation Distribution
+                </h4>
+                <div className="h-[300px] w-full bg-slate-50 rounded-[2rem] p-6 border border-slate-100">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#64748b'}} />
+                      <YAxis hide />
+                      <RechartsTooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl border border-slate-800">
+                                <p className="text-xs font-black uppercase tracking-widest opacity-50 mb-1">{payload[0].payload.label}</p>
+                                <p className="text-lg font-black">{formatCurrency(payload[0].value as number)}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area type="monotone" dataKey="price" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorPrice)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
